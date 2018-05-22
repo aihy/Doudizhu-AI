@@ -1,13 +1,19 @@
 # -*- coding=utf-8 -*-
+import matplotlib
+matplotlib.use('Agg')
+import copy
 import itertools
 import random
-import time
+import sys
+from collections import Counter
 
-global sigb  # 谁是地主
-sigb = 1
+# global sigb  # 谁是地主
+# sigb = 1
 
 DEBUG0 = 0
 MAXLEVEL = 3
+MTTIMES = 1
+MAXTS = 1000
 
 
 class DTree(object):
@@ -25,7 +31,7 @@ class DTree(object):
     def addNode(self, iupltype, iuplvalue, ugyupl, player, value=-1, buiu=0, level=0):
         if buiu > 2:
             return
-        if level >= MAXLEVEL:
+        if level >= MAXLEVEL or value != -1:
             score = judge(ugyupl[0])
         else:
             score = -1
@@ -137,6 +143,7 @@ def findfzji(a, b, ln, rn):
 
 
 def display(handcards, nhandcards, lhandcards):
+    print("            3  4  5  6  7  8  9  10 J  Q  K  A  2 小王 大王")
     print("handcards:", handcards)
     print("nhandcards:", nhandcards)
     print("lhandcards:", lhandcards)
@@ -177,7 +184,7 @@ def chaipai(handcards):
     dvzi = []
     sjvh = []
     vadj = []
-    for i in range(14):
+    for i in range(15):
         if dj[i] == 1:
             djvh.append(i)
         if dv[i] == 1:
@@ -186,8 +193,8 @@ def chaipai(handcards):
             sjvh.append(i)
         if si[i] == 1:
             vadj.append(i)
-        if dj[13] == 1 and dj[14] == 1:
-            vadj.append(13)
+    if dj[13] == 1 and dj[14] == 1:
+        vadj.append(13)
     # 下面建立顺子列表 从单张列表里找到连续5个以上有值的
     upzi = findshun(5, dj)
     lmdv = findshun(3, dv)
@@ -272,13 +279,13 @@ def checkhandsdict(pushcarddict):  # 去掉空的项
     return pushcarddict
 
 
-def isend(handcards, nhandcards, lhandcards, sigb):
+def isend(handcards, nhandcards, lhandcards, sigbb=1):
     '''
 
     :param handcards:
     :param nhandcards:
     :param lhandcards:
-    :param sigb:    1   我是地主
+    :param sigbb:    1   我是地主
                     2   下家是地主
                     3   上家是地主
     :return:    1   赢
@@ -308,7 +315,7 @@ def isend(handcards, nhandcards, lhandcards, sigb):
 
     if sig == 4:
         return -1
-    if (sigb == 1 and (sig == 2 or sig == 3)) or (sigb == 2 and sig == 2) or (sigb == 3 and sig == 3):
+    if (sigbb == 1 and (sig == 2 or sig == 3)) or (sigbb == 2 and sig == 2) or (sigbb == 3 and sig == 3):
         return 0
     else:
         return 1
@@ -323,14 +330,15 @@ def sumofcards(type, value):
         return numdict[type]
     upnumdict = {"upzi": 1, "lmdv": 2, "sjlm": 3, "silm": 4}
     if type in upnumdict.keys():
-        return (value[1] - value[0]) * upnumdict[type]
+        return (value[1] - value[0] + 1) * upnumdict[type]
+    elif type == -1:
+        return 0
     else:
         print("Wrong in 005")
         return -1
 
 
 def isbigger(type, myvalue, hisvalue):
-    # TODO(炸弹 王炸)
     type1 = ["djvh", "dvzi", "sjvh", "vadj"]
     type2 = ["sjdlyi", "sjdlor", "sidlor", "sidllddv", "upzi", "lmdv", "sjlm", "silm"]
     if DEBUG0:
@@ -358,6 +366,8 @@ def hvfu(type, value):  # 把出牌恢复成01的形式
                "sjdlor": (3, 2), "sidlor": (4, 1), "sidllddv": (4, 2), "orlmfzji": (3, 1), "orlmfzji2": (3, 2),
                "sjlmfzji": (3, 1), "sjlmfzji2": (3, 2), "silmfzji": (3, 1), "silmfzji2": (3, 2), "wulmfzji": (3, 1),
                "hhtmfzji": (4, 1), "hhtmfzji2": (4, 2), "hhtmfzji3": (4, 1)}
+    if type == "vadj" and value == 13:
+        return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
     if type in {"djvh", "dvzi", "sjvh", "vadj"}:
         odlcards[value] = numdict[type]
     if type in {"upzi", "lmdv", "sjlm", "silm"}:
@@ -398,7 +408,7 @@ def gen_game_tree(root):
         canpush = checkhandsdict(canpush)
     else:  # 按root.iupl出
         odlcards = hvfu(root.iupltype, root.iuplvalue)  # 把出牌恢复成01的形式
-        canpush = keiu(odlcards, root.ugyupl[a])
+        canpush = keiu(odlcards, root.ugyupl[a])[0]
     backup = (handcards, nhandcards, lhandcards)
     if canpush:
         for key in canpush:
@@ -414,7 +424,7 @@ def gen_game_tree(root):
                 elif root.player == 'l':
                     lhandcards = list(map(lambda x: x[0] - x[1], zip(lhandcards, odlcards)))
                     player = 'w'
-                endvalue = isend(handcards, nhandcards, lhandcards, sigb)  # 判断是否游戏结束了
+                endvalue = isend(handcards, nhandcards, lhandcards, sigbb)  # 判断是否游戏结束了
                 if endvalue == 1:  # 如果结束了就加上权值
                     value = 100  # 赢了100
                 elif endvalue == 0:
@@ -459,7 +469,6 @@ def gen_game_tree(root):
 
 def keiu(odlcards, handcards):
     '''
-
     :param odlcards: 需要跟的牌
     :param handcards: 手牌
     :return: 可出dict
@@ -475,7 +484,7 @@ def keiu(odlcards, handcards):
                "orlmfzji": 8, "orlmfzji2": 10, "sjlmfzji": 12, "sjlmfzji2": 15,
                "silmfzji": 16, "silmfzji2": 20, "wulmfzji": 20, "hhtmfzji": 12,
                "hhtmfzji2": 16, "hhtmfzji3": 18}
-
+    odlcardsdict = checkhandsdict(odlcardsdict)
     for key in odlcardsdict:
         upnumdict = {"upzi": 1, "lmdv": 2, "sjlm": 3, "silm": 4}
         if key in upnumdict.keys():  # 如果是顺子   要选最大的那一个
@@ -495,17 +504,17 @@ def keiu(odlcards, handcards):
             keydel.append(key)
     for i in keydel:
         odlcardsdict.pop(i)
-    if DEBUG0:
-        print("我需要跟：", odlcardsdict)  # 我需要跟什么牌
+    # print("我需要跟", odlcardsdict)  # 我需要跟什么牌
     handsdict = chaipai(handcards)
     handsdict = checkhandsdict(handsdict)  # 我可以出什么牌
+    # print("我可以出",handsdict)
     try:
         histype = list(odlcardsdict.keys())[0]  # 需要跟的牌型
         hisvalue = list(odlcardsdict.values())[0][0]  # 需要跟的牌值
     except:
         # print("WARNING:", odlcardsdict)
-        hisvalue = 'x'
-        histype = 'x'
+        hisvalue = -1
+        histype = -1
     canpush = {}  # 可出字典
     for key in handsdict:
         if key == "vadj" and histype != "vadj":
@@ -526,7 +535,7 @@ def keiu(odlcards, handcards):
                     canpush[key].append(handsdict[key][i])
                 else:
                     canpush[key] = [handsdict[key][i]]
-    return canpush
+    return canpush, histype, hisvalue
 
 
 def judge(cards):
@@ -560,7 +569,71 @@ def judge_tree(root):
     return root.score
 
 
-def main():
+def svbmiu(handcards, nhandcards, lhandcards):
+    pushcarddict = chaipai(handcards)
+    pushcarddict = checkhandsdict(pushcarddict)
+    if DEBUG0:
+        print(pushcarddict)
+    # iuma = input("出牌吗?(y/n)")
+    # if iuma == "y":
+    #     while True:
+    #         display(handcards, nhandcards, lhandcards)
+    #         ocards = input("请输入你出的牌")
+    #         odcards = (ocards.split(' '))
+    #         try:
+    #             odlcards = [int(odcards[i]) for i in range(len(odcards))]
+    #         except:
+    #             print("输入有误")
+    #             continue
+    #         if len(odlcards) != 15:
+    #             print("输入有误")
+    #             continue
+    #         handcards = list(map(lambda x: x[0] - x[1], zip(handcards, odlcards)))
+    #         break
+    # else:
+    #     continue
+    ugyupl = (handcards, nhandcards, lhandcards)
+    root = DTree("root", "root", ugyupl, "w")
+    # print(time.clock())
+    gen_game_tree(root)  # 博弈树建立结束
+    maxa = judge_tree(root)
+    # print(time.clock())
+    for i in root.nodes:
+        if maxa == i.score:
+            iupltype = i.iupltype
+            iuplvalue = i.iuplvalue
+            print("出牌：", i.iupltype, i.iuplvalue)
+            break
+    return iupltype, iuplvalue
+
+
+def gfpl(odlcards, handcards, nhandcards, lhandcards):
+    canpush, histype, hisvalue = keiu(odlcards, handcards)
+    print("canpush", canpush)
+    if not canpush:
+        print("要不起！")
+        return -1, -1
+    else:
+        ugyupl = (handcards, nhandcards, lhandcards)
+        root = DTree(histype, hisvalue, ugyupl, "w")
+        gen_game_tree(root)  # 博弈树建立结束
+        maxa = judge_tree(root)
+        for i in root.nodes:
+            if maxa == i.score:
+                if i.buiu == 0:
+                    iupltype = i.iupltype
+                    iuplvalue = i.iuplvalue
+                else:
+                    iupltype = -1
+                    iuplvalue = -1
+                print("出牌：", iupltype, iuplvalue)
+                break
+        return iupltype, iuplvalue
+
+
+def shoudong():
+    global sigbb
+    sigbb = 1
     # handcards = [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     # nhandcards = [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     # lhandcards = [0, 0, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -571,12 +644,12 @@ def main():
     while True:  # not end:
         display(handcards, nhandcards, lhandcards)
         sig = input('请输入状态码：（0-游戏结束 1-该其他玩家出牌了 2-该我出牌了)')
-        if sig == '0':  # end
+        if sig[0] == '0':  # end
             exit()
-        elif sig == '1':  # others's turn
+        elif sig[0] == '1':  # others's turn
             whost = input('该上家(l)出牌了还是下家(n)？(n/l)')
             ij = input("他出牌了吗？(y/n)")
-            if ij == 'y':
+            if ij[0] == 'y':
                 while True:
                     ijb = 0
                     ocards = input("请输入他出的牌")
@@ -597,89 +670,22 @@ def main():
                         print("输入有误")
                         exit(-1)
                     break
-            elif ij == 'n':
+            elif ij[0] == 'n':
                 ijb += 1
             else:
                 print("输入有误")
                 exit(-1)
-        elif sig == '2':  # my turn
+        elif sig[0] == '2':  # my turn
             if DEBUG0:
                 print("ijb = ", ijb)
             if ijb > 1:  # 随便出
-                pushcarddict = chaipai(handcards)
-                pushcarddict = checkhandsdict(pushcarddict)
-                if DEBUG0:
-                    print(pushcarddict)
-                # iuma = input("出牌吗?(y/n)")
-                # if iuma == "y":
-                #     while True:
-                #         display(handcards, nhandcards, lhandcards)
-                #         ocards = input("请输入你出的牌")
-                #         odcards = (ocards.split(' '))
-                #         try:
-                #             odlcards = [int(odcards[i]) for i in range(len(odcards))]
-                #         except:
-                #             print("输入有误")
-                #             continue
-                #         if len(odlcards) != 15:
-                #             print("输入有误")
-                #             continue
-                #         handcards = list(map(lambda x: x[0] - x[1], zip(handcards, odlcards)))
-                #         break
-                # else:
-                #     continue
-                ugyupl = (handcards, nhandcards, lhandcards)
-                root = DTree("root", "root", ugyupl, "w")
-                print(time.clock())
-                gen_game_tree(root)  # 博弈树建立结束
-                maxa = judge_tree(root)
-                print(time.clock())
-                for i in root.nodes:
-                    if maxa == i.score:
-                        print("出牌：", i.iupltype, i.iuplvalue)
-                        break
-                # for i in range(len(root.nodes)):
-                #     print(root.nodes[i].score)
-                # print(maxa)
+                svbmiu(handcards, nhandcards, lhandcards)
             else:  # 根据odlcards出
-                canpush = keiu(odlcards, handcards)
-                if not canpush:
-                    print("要不起！")
-                else:
-                    if DEBUG0:
-                        print("可出：", canpush)
-                    # iuma = input("出牌吗?(y/n)")
-                    # if iuma == "y":
-                    #     while True:
-                    #         display(handcards, nhandcards, lhandcards)
-                    #         ocards = input("请输入你出的牌")
-                    #         odcards = (ocards.split(' '))
-                    #         try:
-                    #             odlcards = [int(odcards[i]) for i in range(len(odcards))]
-                    #         except:
-                    #             print("输入有误")
-                    #             continue
-                    #         if len(odlcards) != 15:
-                    #             print("输入有误")
-                    #             continue
-                    #         handcards = list(map(lambda x: x[0] - x[1], zip(handcards, odlcards)))
-                    #         break
-
-                    # 建立决策树
-                    # 反向评分
-                    # 选择评分最高的项 并出牌
-                    ugyupl = (handcards, nhandcards, lhandcards)
-                    root = DTree("root", "root", ugyupl, "w")
-                    gen_game_tree(root)  # 博弈树建立结束
-                    maxa = judge_tree(root)
-                    for i in root.nodes:
-                        if maxa == i.score:
-                            print("出牌：", i.iupltype, i.iuplvalue)
-                            break
+                gfpl()
         else:
             print("Wrong in 003")
             exit(-1)
-        isendnum = isend(handcards, nhandcards, lhandcards, sigb)
+        isendnum = isend(handcards, nhandcards, lhandcards, sigbb)
         if isendnum == 1:
             print("我赢了")
             break
@@ -694,4 +700,325 @@ def main():
     return
 
 
-main()
+def inputcards(lastc, ijb, num, odc):
+    '''
+    :param lastc:剩余牌
+    :return: 剩余牌
+    '''
+    # 输入字符串
+    # 转换为01
+    # 返回剩余牌
+    strdict = {"3": 0, "4": 1, "5": 2, "6": 3, "7": 4, "8": 5, "9": 6, "0": 7, "j": 8, "q": 9, "k": 10, "a": 11,
+               "2": 12, "x": 13, "d": 14}
+    str = input("请输入出的牌 格式为34567890jqka2xd zz为不出")
+    if str == "zz":
+        ijb += 1
+        return lastc, odc, ijb, num
+    odc = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ijb = 0
+    num -= len(str)
+    for i in range(len(str)):
+        odc[strdict[str[i]]] += 1
+    lastc = list(map(lambda x: x[0] - x[1], zip(lastc, odc)))
+    return lastc, odc, ijb, num
+
+
+def sumof(handc):
+    sum = 0
+    for i in handc:
+        sum += i
+    return sum
+
+
+def svjipl(lastc, nnum, lnum):
+    '''
+    :param lastc:剩余牌
+    :param nnum: 下家手牌数量
+    :param lnum: 上家手牌数量
+    :return: 随机一个其他玩家手牌情况
+    '''
+    templist = []
+    nhand = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    lastct = copy.deepcopy(lastc)
+    for i in range(len(lastct)):
+        while lastct[i] > 0:
+            templist.append(i)
+            lastct[i] -= 1
+    nhandtemp = random.sample(templist, nnum)
+    for i in nhandtemp:
+        nhand[i] += 1
+    lhand = list(map(lambda x: x[0] - x[1], zip(lastc, nhand)))
+    # print("lastc", sumof(lastc), "nhand", sumof(nhand), "lhand", sumof(lhand))
+    return nhand, lhand
+
+
+def update(iupltype, iuplvalue, handc, mnum):
+    '''
+    :param iupl:出的牌
+    :param handc: 手牌
+    :param mnum: 手牌计数器
+    :return: 更新后的手牌 数量
+    '''
+    odl = hvfu(iupltype, iuplvalue)
+    handc = list(map(lambda x: x[0] - x[1], zip(handc, odl)))
+    mnum -= sumofcards(iupltype, iuplvalue)
+    print("mnum", mnum)
+    return handc, mnum
+
+
+def initcards():
+    '''
+    :return:手牌 剩余牌
+    '''
+    str = input("请输入手牌 格式为34567890jqka2xd")
+    strdict = {"3": 0, "4": 1, "5": 2, "6": 3, "7": 4, "8": 5, "9": 6, "0": 7, "j": 8, "q": 9, "k": 10, "a": 11,
+               "2": 12, "x": 13, "d": 14}
+    handc = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    allc = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1]
+    for i in range(len(str)):
+        handc[strdict[str[i]]] += 1
+    lastc = list(map(lambda x: x[0] - x[1], zip(allc, handc)))
+    return handc, lastc
+
+
+def fanyi(type, value):
+    if type == -1:
+        return "不出"
+    odc = hvfu(type, value)
+    fstrdict = {0: "3", 1: "4", 2: "5", 3: "6", 4: "7", 5: "8", 6: "9", 7: "10", 8: "J", 9: "Q", 10: "K", 11: "A",
+                12: "2", 13: "小王", 14: "大王"}
+    str = []
+    for i in range(len(odc)):
+        while odc[i] > 0:
+            str.append(fstrdict[i])
+            odc[i] -= 1
+    return str
+
+
+def zidong():
+    # 输入手牌-计算剩余牌
+    # 出牌-输入别人出牌-更新剩余牌
+    global sigbb
+    sigbb = input("谁是地主1-我/2-下家/3-上家")
+    if sigbb == "1":
+        mnum = 20  # 手牌计数器
+        nnum = 17
+        lnum = 17
+        loop = 0
+    elif sigbb == "2":
+        mnum = 17  # 手牌计数器
+        nnum = 20
+        lnum = 17
+        loop = 1
+    else:
+        mnum = 17  # 手牌计数器
+        nnum = 17
+        lnum = 20
+        loop = 2
+    ijb = 999  # 控制是否随便出
+    handc, lastc = initcards()
+    print("initcards", handc, lastc)
+    # 手牌 剩余牌ready
+    odc = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    while True:
+        if loop % 3 == 0:  # my turn
+            iupllist = []
+            for i in range(MTTIMES):
+                nhand, lhand = svjipl(lastc, nnum, lnum)  # 随机一个下家和上家的手牌
+                print("svjipl", nhand, lhand)
+                # 现在有三家的牌了 可以算了
+                if ijb > 1:
+                    iupltype, iuplvalue = svbmiu(handc, nhand, lhand)
+                    print("svbmiu", iupltype, iuplvalue)
+                else:
+                    print("odc", odc)
+                    iupltype, iuplvalue = gfpl(odc, handc, nhand, lhand)
+                    print("gfpl", iupltype, iuplvalue)
+                iupllist.append((iupltype, iuplvalue))
+            print("iupllist", iupllist)
+            iupl, times = Counter(iupllist).most_common(1)[0]
+            print("most_common", iupl)
+            # 然后更新牌库
+            handc, mnum = update(iupl[0], iupl[1], handc, mnum)
+            print("update", handc, mnum)
+            iuplstr = fanyi(iupl[0], iupl[1])
+            print("********************************出牌", iuplstr, "********************************")
+        elif loop % 3 == 1:  # 下家
+            lastc, odc, ijb, nnum = inputcards(lastc, ijb, nnum, odc)
+            print("inputcards", lastc, odc, ijb, nnum)
+        else:  # 上家
+            lastc, odc, ijb, lnum = inputcards(lastc, ijb, lnum, odc)
+            print("inputcards", lastc, odc, ijb, lnum)
+        print("===========================================================================")
+        loop += 1
+
+
+def randomtest(lastc, ijb, num, odc, handu):
+    if ijb > 1:  # 随便出
+        pushcarddict = chaipai(handu)
+        pushcarddict = checkhandsdict(pushcarddict)
+        pushcardlist = []
+        for key in pushcarddict:
+            for elem in pushcarddict[key]:
+                pushcardlist.append((key, elem))
+        # print("pushcardlist",pushcardlist)
+        push = random.sample(pushcardlist, 1)
+
+        pushtype = push[0][0]
+        pushvalue = push[0][1]
+        print("出牌", fanyi(pushtype, pushvalue))
+        ijb = 0
+        odc = hvfu(pushtype, pushvalue)
+        num -= sumofcards(pushtype, pushvalue)
+        lastc = list(map(lambda x: x[0] - x[1], zip(lastc, odc)))
+        handu = list(map(lambda x: x[0] - x[1], zip(handu, odc)))
+    else:
+        canpush, histype, hisvalue = keiu(odc, handu)
+        # print("canpush", canpush)
+        if not canpush:
+            print("要不起！")
+            ijb += 1
+            return lastc, odc, ijb, num, handu
+        pushcardlist = []
+        for key in canpush:
+            for elem in canpush[key]:
+                pushcardlist.append((key, elem))
+        push = random.sample(pushcardlist, 1)
+        pushtype = push[0][0]
+        pushvalue = push[0][1]
+        print("出牌", fanyi(pushtype, pushvalue))
+        ijb = 0
+        odc = hvfu(pushtype, pushvalue)
+        num -= sumofcards(pushtype, pushvalue)
+        lastc = list(map(lambda x: x[0] - x[1], zip(lastc, odc)))
+        handu = list(map(lambda x: x[0] - x[1], zip(handu, odc)))
+    return lastc, odc, ijb, num, handu
+
+
+def aipush():
+    global sigbb
+    sigbb = 1
+    if sigbb == 1:
+        mnum = 20  # 手牌计数器
+        nnum = 17
+        lnum = 17
+        loop = 0
+    elif sigbb == 2:
+        mnum = 17  # 手牌计数器
+        nnum = 20
+        lnum = 17
+        loop = 1
+    else:
+        mnum = 17  # 手牌计数器
+        nnum = 17
+        lnum = 20
+        loop = 2
+    ijb = 999  # 控制是否随便出
+    handc, nhandu, lhandu = randomcard()
+    display(handc, nhandu, lhandu)
+    lastc = list(map(lambda x: x[0] + x[1], zip(nhandu, lhandu)))
+    # handc, lastc = initcards()
+    # print("initcards", handc, lastc)
+    # 手牌 剩余牌ready
+    odc = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    while True:
+        if loop % 3 == 0:  # my turn
+            iupllist = []
+            for i in range(MTTIMES):
+                nhand, lhand = svjipl(lastc, nnum, lnum)  # 随机一个下家和上家的手牌
+                # print("svjipl", nhand, lhand)
+                # 现在有三家的牌了 可以算了
+                if ijb > 1:
+                    iupltype, iuplvalue = svbmiu(handc, nhand, lhand)
+                    # print("svbmiu", iupltype, iuplvalue)
+                else:
+                    # print("odc", odc)
+                    iupltype, iuplvalue = gfpl(odc, handc, nhand, lhand)
+                    # print("gfpl", iupltype, iuplvalue)
+                iupllist.append((iupltype, iuplvalue))
+            print("iupllist", iupllist)
+            iupl, times = Counter(iupllist).most_common(1)[0]
+            # print("most_common", iupl)
+            # 然后更新牌库
+            handc, mnum = update(iupl[0], iupl[1], handc, mnum)
+            # print("update", handc, mnum)
+            iuplstr = fanyi(iupl[0], iupl[1])
+            print("********************************我出牌", iuplstr, "********************************")
+            if iupl[0] == -1:
+                ijb += 1
+            else:
+                ijb = 0
+                odc = hvfu(iupl[0], iupl[1])
+            display(handc, nhandu, lhandu)
+            if mnum <= 0:
+                print("######我赢了######")
+                return 1
+        elif loop % 3 == 1:  # 下家
+            print("下家")
+            lastc, odc, ijb, nnum, nhandu = randomtest(lastc, ijb, nnum, odc, nhandu)
+            # print("randomtest", lastc, odc, ijb, nnum, nhandu)
+            display(handc, nhandu, lhandu)
+            if nnum <= 0:
+                print("######下家赢了######")
+                return 0
+        else:  # 上家
+            print("上家")
+            lastc, odc, ijb, lnum, lhandu = randomtest(lastc, ijb, lnum, odc, lhandu)
+            # print("randomtest", lastc, odc, ijb, lnum, lhandu)
+            display(handc, nhandu, lhandu)
+            if lnum <= 0:
+                print("######上家赢了######")
+                return 0
+        print("==================================================================")
+        loop += 1
+
+
+def show():
+    import time
+    import matplotlib.pyplot as plt
+    f1 = plt.figure(1)
+    vicsum = 0
+#    plt.ion()
+    for i in range(1, MAXTS + 1):
+        v = aipush()
+        vicsum += v
+        vp = vicsum / i
+        plt.scatter(i, vp, color='m')#, label='MTTIMES=1')
+    # global MTTIMES
+    # MTTIMES = 10
+    # vicsum = 0
+    # for i in range(1, MAXTS + 1):
+    #     v = aipush()
+    #     vicsum += v
+    #     vp = vicsum / i
+    #     plt.scatter(i, vp, color='c', label='MTTIMES=10')
+    # plt.legend(loc = 'upper right')
+    plt.savefig(str(MAXLEVEL)+ ".png")
+
+    #     plt.pause(0.001)
+    # while(True):
+    #     plt.pause(0.001)
+
+def test():
+    # shoudong()
+    # zidong()
+    # odc = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
+    # han = [0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0]
+    # keiu(odc,han)
+    # nh = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # lh = [1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    #
+    # print(gfpl(odc, han, nh, lh))
+    # aipush()
+    # print(sumofcards("upzi",(4,9)))
+    global DEBUG0
+    global MAXLEVEL
+    global MTTIMES
+    global MAXTS
+    DEBUG0 = 0
+    MAXLEVEL = int(sys.argv[1])
+    MTTIMES = int(sys.argv[2])
+    MAXTS = int(sys.argv[3])
+    show()
+
+test()
