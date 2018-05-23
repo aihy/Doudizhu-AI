@@ -975,15 +975,21 @@ def aipush():
 
 def show():
     import time
-    import matplotlib.pyplot as plt
-    f1 = plt.figure(1)
-    vicsum = 0
+    import random
+    #import matplotlib.pyplot as plt
+    #f1 = plt.figure(1)
+    #vicsum = 0
 #    plt.ion()
+    vl=[]
     for i in range(1, MAXTS + 1):
         v = aipush()
-        vicsum += v
-        vp = vicsum / i
-        plt.scatter(i, vp, color='m')#, label='MTTIMES=1')
+        vl.append(v)
+    f=open(str(MAXLEVEL)+'+'+sys.argv[4],"w")
+    f.write(str(vl))
+    f.close()
+  #      vicsum += v
+   #     vp = vicsum / i
+#        plt.scatter(i, vp, color='m')#, label='MTTIMES=1')
     # global MTTIMES
     # MTTIMES = 10
     # vicsum = 0
@@ -993,7 +999,7 @@ def show():
     #     vp = vicsum / i
     #     plt.scatter(i, vp, color='c', label='MTTIMES=10')
     # plt.legend(loc = 'upper right')
-    plt.savefig(str(MAXLEVEL)+ ".png")
+ #   plt.savefig(str(MAXLEVEL)+ ".png")
 
     #     plt.pause(0.001)
     # while(True):
