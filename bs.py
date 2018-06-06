@@ -1027,4 +1027,5 @@ def test():
     MAXTS = int(sys.argv[3])
     show()
 
-test()
+#test()
+zidong()
